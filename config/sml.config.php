@@ -5,7 +5,7 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-
+define('MAILPEC',1);
 define('MAILHOSTOUT', "smtps.pec.aruba.it");
 define('MAILHOSTIN', "imaps.pec.aruba.it");
 define("MAILUSER", "amministrazione@pec.gisweb.it");
@@ -20,4 +20,8 @@ define("MAILSSLIN", 'ssl');
 define("MAILSECURE", 'ssl');
 define('MAILAUTH',true);
 define('MAILDSN',"pgsql:dbname=gw_alghero;user=postgres;password=postgres;host=127.0.0.1;port=5434");
+
+$project = "sml";
+$url = "http://webservice.gisweb.it/wsmail/$project.wsMail.php?wsdl";
+define('SERVICE_URL',$url);
 ?>

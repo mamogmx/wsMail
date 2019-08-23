@@ -27,6 +27,7 @@ function generateRandomString($length = 10) {
 
 $uuid = generateRandomString(32);
 
+
 $type="IN";
 if($type=="OUT"){
     $oggetto = "Richiesta Integrazioni pratica XXXX";
@@ -55,7 +56,7 @@ else{
 /******************************************************************************/
     $uuid = "UQBXZlSqfAHPj8Y2hpk59LvitNJ3saFM";
     $pec = "carboneXXX.marco@pec.it";
-    $res = gwMail::getConsegna($uuid,$pec);
-    //print_r($res);
+    $res = gwMail::getAccettazione();
+    print_r($res);
 }
 ?>

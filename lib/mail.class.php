@@ -32,6 +32,7 @@ class gwMail{
     const from = MAILFROM;
     const auth = MAILAUTH;
     const alias = MAILALIAS;
+    const pec = MAILPEC;
     
     const defaultLength = 32;
     
@@ -94,10 +95,9 @@ class gwMail{
         }
         
         $uuid = self::generateRandomString();
-        //Set the subject line
+
         $mail->Subject = sprintf('%s - %s', $subject, $uuid);
-        //Read an HTML message body from an external file, convert referenced images to embedded,
-        //convert HTML into a basic plain-text alternative body
+
         if($html) $mail->isHTML (true);
         $mail->Body = $text;
         if (self::secure) $mail->SMTPSecure = self::secure;
@@ -105,7 +105,7 @@ class gwMail{
         if (!$mail->send()) {
             return Array("success"=>0,"message"=>$mail->ErrorInfo, "uuid"=>"") ;
         } else {
-            $sql = "INSERT INTO gw_mail.mail_out(uuid,project,application,oggetto,testo,a,cc,bcc,allegati,protocollo,data_protocollo,tms_protocollo,uidins) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?);";
+            $sql = "INSERT INTO gw_mail.mail_out(uuid,project,application,oggetto,testo,a,cc,bcc,allegati,protocollo,data_protocollo,tms_protocollo,uidins,pec) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?);";
             $dbh = self::getDB();
             $arrTO =(count($cc))?(sprintf("{'%s'}",implode("','",$to))):(NULL);
             $arrCC =(count($cc))?(sprintf("{'%s'}",implode("','",$cc))):(NULL);
@@ -126,12 +126,13 @@ class gwMail{
                 $protocollo,
                 $data,
                 $tms,
-                1
+                $userId,
+                self::pec
             );
             $stmt = $dbh->prepare($sql);
             if(!$stmt->execute($data)){
                 $err = $stmt->errorInfo();
-                return Array("success"=>1,"message"=>$err[2], "uuid"=>"");
+                return Array("success"=>1,"message"=>$err[2], "uuid"=>$uuid);
             }
             else{
                 return Array("success"=>1,"message"=>"", "uuid"=>$uuid);
@@ -139,46 +140,96 @@ class gwMail{
         }
     }
     
-    static function getAccettazione($uuid){
-
+    static function getAccettazione($uuid = ""){
+        $uuidOut = ($uuid)?($uuid):("");
         $imapResource = self::getMailBox();
         
-        $searchDate = 'SINCE "' . date("j F Y", strtotime("-10 days")) . '"';
-        $searchSubject = sprintf('SUBJECT "%s"',$uuid);
+        $searchDate = 'SINCE "' . date("j F Y", strtotime("-1 days")) . '"';
+        $searchSubject = ($uuid)?(sprintf('SUBJECT "%s"',$uuid)):("");
         $search = sprintf("%s %s",$searchDate,$searchSubject);
         
         $emails = imap_search($imapResource, $search);
 
-        $folders = imap_listmailbox($imapResource, $mailbox, "*");
         $result = Array("success"=>1,"data"=>Array());
         if(!empty($emails)){
             //Loop through the emails.
             foreach($emails as $email){
                 //Fetch an overview of the email.
                 $overview = imap_fetch_overview($imapResource, $email);
-                $res = $overview;
                 $overview = $overview[0];
-
-                $message = imap_fetchbody($imapResource, $email, 1, FT_PEEK);
+                $res = $overview;
+                if(!$uuid){
+                    $regexp="/(.+) - (?P<UUID>['0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ']{32})$/";
+                    if(preg_match($regexp,$overview->subject,$matches)){
+                        $uuidOut = $matches["UUID"];
+                    }
+                    else{
+                        $uuidOut = "";
+                    }
+                }
+                
+                $message = imap_fetchbody($imapResource, $email, 1.1, FT_PEEK);
+                $message = html_entity_decode($message);
+                $res = json_decode(json_encode($res),TRUE);
+                
+                //print_r($res);
                 if (preg_match("/^ACCETTAZIONE:(.+)/",$overview->subject)){
-                    $res["message"]=$message;
+                    
                     $res["accettazione"] = 1;
-                    $result["data"][] = $res; 
+                    $res["message"]=$message;
+                    $result["data"][] = Array(
+                        "uuid"=>$uuidOut,
+                        "message_id"=>$res["message_id"],
+                        "oggetto"=>$res["subject"],
+                        "from"=>$res["from"],
+                        "to"=>$res["to"],
+                        "data"=> date("d/m/Y H:i:s",$res["udate"]),
+                        "uid" => $res["uid"],
+                        "accettazione"=>$res["accettazione"],
+                    );   
+                    $sql = "INSERT INTO gw_mail.mail_in(uuid, oggetto, testo, da, a, tms_ricezione, accettazione) VALUES (?, ?, ?, ?, ?, ?, ?);";
+                    $dbh = self::getDB();
+                    $data = Array($uuidOut,$res["subject"],$res["message"],$res["from"],$res["to"],$res["date"],$res["accettazione"]);
+                    $stmt = $dbh->prepare($sql);
+                    if(!$stmt->execute($data)){
+                        $err = $stmt->errorInfo();
+                        $mex = sprintf("\nESECUZIONE QUERY ERRATA :\n %s\n",$err[2]);
+                        print $mex;
+                    }
                 }
                 elseif (preg_match("/^AVVISO DI NON ACCETTAZIONE:(.+)/",$overview->subject)) {
+
+                    $res["accettazione"] = -1;
                     $res["message"]=$message;
-                    $res["accettazione"] = 0;
-                    $result["data"][] = $res; 
+                    $result["data"][] = Array(
+                        "uuid"=>$uuidOut,
+                        "message_id"=>$res["message_id"],
+                        "oggetto"=>$res["subject"],
+                        "from"=>$res["from"],
+                        "to"=>$res["to"],
+                        "data"=> date("d/m/Y H:i:s",$res["udate"]),
+                        "uid" => $res["uid"],
+                        "accettazione"=>$res["accettazione"],
+                    );  
+                    $sql = "INSERT INTO gw_mail.mail_in(uuid, oggetto, testo, da, a, tms_ricezione, accettazione) VALUES (?, ?, ?, ?, ?, ?, ?);";
+                    $dbh = self::getDB();
+                    $data = Array($uuidOut,$res["subject"],$res["message"],$res["from"],$res["to"],$res["date"],$res["accettazione"]);
+                    $stmt = $dbh->prepare($sql);
+                    if(!$stmt->execute($data)){
+                        $err = $stmt->errorInfo();
+                        $mex = sprintf("\nESECUZIONE QUERY ERRATA :\n %s\n",$err[2]);
+                        print $mex;
+                    }
                 }
             }
         }
         return $result;
     }
-    static function getConsegna($uuid,$pec=""){
-            
+    static function getConsegna($uuid = "",$pec=""){
+        $uuidOut = ($uuid)?($uuid):("");
         $imapResource = self::getMailBox();
-        $searchDate = 'SINCE "' . date("j F Y", strtotime("-10 days")) . '"';
-        $searchSubject = sprintf('SUBJECT "%s"',$uuid);
+        $searchDate = 'SINCE "' . date("j F Y", strtotime("-1 days")) . '"';
+        $searchSubject = ($uuid)?(sprintf('SUBJECT "%s"',$uuid)):("");
         //$searchText = ($pec)?(sprintf('TEXT "indirizzato a %s"',$pec)):("");
         $search = sprintf("%s %s",$searchDate,$searchSubject);
         $emails = imap_search($imapResource, $search);
@@ -189,47 +240,128 @@ class gwMail{
             //Loop through the emails.
             foreach($emails as $email){
                 //Fetch an overview of the email.
-                
                 $overview = imap_fetch_overview($imapResource, $email);
-                
                 $overview = $overview[0];
                 $res = $overview;
+                if(!$uuid){
+                    $regexp="/(.+) - (?P<UUID>['0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ']{32})$/";
+                    if(preg_match($regexp,$overview->subject,$matches)){
+                        $uuidOut = $matches["UUID"];
+                    }
+                    else{
+                        $uuidOut = "";
+                    }
+                }
                 $message = imap_fetchbody($imapResource, $email, 1.1, FT_PEEK);
                 $message = html_entity_decode($message);
                 $res = json_decode(json_encode($res),TRUE);
                 if (preg_match("/^CONSEGNA:(.+)/",$overview->subject)){
-                    $regexp = sprintf('/indirizzato a "%s"/',$pec);
+                    
                     if($pec){
+                        $regexp = sprintf('/indirizzato a "%s"/',$pec);
                         if (preg_match($regexp,$message)){
-                            $res["message"]=$message;
+                            $res["destinatario"] = $pec;
                             $res["consegna"] = 1;
-                            $result["data"][] = $res;
+                            $res["message"]=$message;
+                            
+                            $result["data"][] = Array(
+                                "uuid"=>$uuidOut,
+                                "message_id"=>$res["message_id"],
+                                "oggetto"=>$res["subject"],
+                                "from"=>$res["from"],
+                                "to"=>$res["to"],
+                                "pec"=>$res["destinatario"],
+                                "data"=> date("d/m/Y H:i:s",$res["udate"]),
+                                "uid" => $res["uid"],
+                                "consegna"=>$res["consegna"],
+                            );    
                         }
                     }
                     else{
-                        $res["message"]=$message;
+                        $regexp = '/indirizzato a "(.+)"/';
+                        if( preg_match($regexp,$message,$matches)){
+                            $res["destinatario"]=$matches[1];
+                        }
+                        
                         $res["consegna"] = 1;
-                        $result["data"][] = $res;
+                        $res["message"]=$message;
+                        
+                        $result["data"][] = Array(
+                            "uuid"=>$uuidOut,
+                            "message_id"=>$res["message_id"],
+                            "oggetto"=>$res["subject"],
+                            "from"=>$res["from"],
+                            "to"=>$res["to"],
+                            "pec"=>$res["destinatario"],
+                            "data"=> date("d/m/Y H:i:s",$res["udate"]),
+                            "uid" => $res["uid"],
+                            "consegna"=>$res["consegna"],
+                        );    
+                    }
+                    $sql = "INSERT INTO gw_mail.mail_in(uuid, oggetto, testo, da, a, tms_ricezione, consegna, consegna_pec) VALUES (?, ?, ?, ?, ?, ?, ?, ?);";
+                    $dbh = self::getDB();
+                    $data = Array($uuidOut,$res["subject"],$res["message"],$res["from"],$res["to"],$res["date"],$res["consegna"],$res["destinatario"]);
+                    $stmt = $dbh->prepare($sql);
+                    if(!$stmt->execute($data)){
+                        $err = $stmt->errorInfo();
+                        $mex = sprintf("\nESECUZIONE QUERY ERRATA :\n %s\n",$err[2]);
+                        print $mex;
                     }
                 }
                 elseif (preg_match("/AVVISO DI MANCATA CONSEGNA:(.+)/",$overview->subject)) {
                     if($pec){
                         $regexp = sprintf('/destinato all\'utente "%s"/',$pec);
-                        
                         if (preg_match($regexp, $message)){
+                            $res["destinatario"] = $pec;
+                            $res["consegna"] = -1;
                             $res["message"]=$message;
-                            $res["consegna"] = 0;
-                            $result["data"][] = $res;    
+                            
+                            $result["data"][] = Array(
+                                "uuid"=>$uuidOut,
+                                "message_id"=>$res["message_id"],
+                                "oggetto"=>$res["subject"],
+                                "from"=>$res["from"],
+                                "to"=>$res["to"],
+                                "pec"=>$res["destinatario"],
+                                "data"=> date("d/m/Y H:i:s",$res["udate"]),
+                                "uid" => $res["uid"],
+                                "consegna"=>$res["consegna"],
+                            );    
                         }
                     }
                     else{
+                        $regexp = '/destinato all\'utente "(.+)"/';
+                        if( preg_match($regexp,$message,$matches)){
+                            $res["destinatario"]=$matches[1];
+                        }
+                        $res["consegna"] = -1;
                         $res["message"]=$message;
-                        $res["consegna"] = 0;
-                        $result["data"][] = $res;
+                        
+                        $result["data"][] = Array(
+                            "uuid"=>$uuidOut,
+                            "message_id"=>$res["message_id"],
+                            "oggetto"=>$res["subject"],
+                            "from"=>$res["from"],
+                            "to"=>$res["to"],
+                            "pec"=>$res["destinatario"],
+                            "data"=> date("d/m/Y H:i:s ",$res["udate"]),
+                            "uid" => $res["uid"],
+                            "consegna"=>$res["consegna"],
+                        );    
+                    }
+                    $sql = "INSERT INTO gw_mail.mail_in(uuid, oggetto, testo, da, a, tms_ricezione, consegna, consegna_pec) VALUES (?, ?, ?, ?, ?, ?, ?, ?);";
+                    $dbh = self::getDB();
+                    $data = Array($uuidOut,$res["subject"],$res["message"],$res["from"],$res["to"],$res["date"],$res["consegna"],$res["destinatario"]);
+                    $stmt = $dbh->prepare($sql);
+                    if(!$stmt->execute($data)){
+                        $err = $stmt->errorInfo();
+                        $mex = sprintf("\nESECUZIONE QUERY ERRATA :\n %s\n",$err[2]);
+                        print $mex;
                     }
                 }
             }
         }
+        
         return $result;
     }
 }
