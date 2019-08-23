@@ -198,9 +198,9 @@ class gwMail{
                 $message = html_entity_decode($message);
                 $res = json_decode(json_encode($res),TRUE);
                 if (preg_match("/^CONSEGNA:(.+)/",$overview->subject)){
-                    $regexp = sprintf('indirizzato a "%s"',$pec);
+                    $regexp = sprintf('/indirizzato a "%s"/',$pec);
                     if($pec){
-                        if (strpos($regexp,$message)){
+                        if (preg_match($regexp,$message)){
                             $res["message"]=$message;
                             $res["consegna"] = 1;
                             $result["data"][] = $res;
