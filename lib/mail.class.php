@@ -198,8 +198,9 @@ class gwMail{
                 $message = html_entity_decode($message);
                 $res = json_decode(json_encode($res),TRUE);
                 if (preg_match("/^CONSEGNA:(.+)/",$overview->subject)){
+                    $regexp = sprintf('indirizzato a "%s"',$pec);
                     if($pec){
-                        if (strpos("indirizzato a \"$pec\"",$message)){
+                        if (strpos($regexp,$message)){
                             $res["message"]=$message;
                             $res["consegna"] = 1;
                             $result["data"][] = $res;
@@ -213,18 +214,12 @@ class gwMail{
                 }
                 elseif (preg_match("/AVVISO DI MANCATA CONSEGNA:(.+)/",$overview->subject)) {
                     if($pec){
-                        $needle = sprintf('/destinato all\'utente "%s"/',$pec);
+                        $regexp = sprintf('/destinato all\'utente "%s"/',$pec);
                         
-                        if (preg_match($needle, $message)){
+                        if (preg_match($regexp, $message)){
                             $res["message"]=$message;
                             $res["consegna"] = 0;
-                            $result["data"][] = $res;
-                            print "TROVATA!!!\n\n";
-                        }
-                        else{
-                            print "la stringa $needle non è stata trovata in \n\n";
-                            print $message;
-                            print "\n\n";
+                            $result["data"][] = $res;    
                         }
                     }
                     else{
