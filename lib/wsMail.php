@@ -8,6 +8,13 @@ $server->decode_utf8 = false;
 $server->configureWSDL('wsMail', SERVICE_URL);
 
 $server->wsdl->addComplexType(
+    'strArray','complexType','array','',
+    'SOAP-ENC:Array',
+    array(),
+    array(array('ref'=>'SOAP-ENC:arrayType','wsdl:arrayType'=>'xsd:string[]'))
+);
+
+$server->wsdl->addComplexType(
     'verificaInvio','complexType','struct','all','',Array(
         "uuid"=>Array("name"=>"uuid","type"=>"xsd:string"),
         "message_id"=>Array("name"=>"message_id","type"=>"xsd:string"),
