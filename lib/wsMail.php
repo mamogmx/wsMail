@@ -76,7 +76,7 @@ $server->wsdl->addComplexType(
     ),
     "tns:verificaInvio"
 );
-$server->register('inviaMail',
+$server->register('inviaPec',
     Array(
         "to"=>"tns:strArray", 
         "oggetto"=>"xsd:string",
