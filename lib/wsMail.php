@@ -126,7 +126,7 @@ function inviaPec($to,$oggetto,$testo,$allegati=Array(),$cc=Array(),$hash){
     return $res;
 }
 
-function verificaInvio($uuid,$hash){
+function verificaPec($uuid,$hash){
     $result = Array(
         "success"=>1,
         "message"=>"",
