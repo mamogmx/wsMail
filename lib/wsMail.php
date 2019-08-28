@@ -78,11 +78,11 @@ $server->wsdl->addComplexType(
 );
 $server->register('inviaMail',
     Array(
-        "to"=>"tns:strArray", 
+        "to"=>"xsd:string[]", 
         "oggetto"=>"xsd:string",
         "testo"=>"xsd:string",
         "allegati"=>"tns:allegati",
-        "cc"=>"xsd:strArray",
+        "cc"=>"xsd:string[]",
         "hash"=>"xsd:string"
     ),
     Array(
