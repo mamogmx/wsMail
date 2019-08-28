@@ -101,11 +101,11 @@ class gwMail{
         if($html) $mail->isHTML (true);
         $mail->Body = $text;
         if (self::secure) $mail->SMTPSecure = self::secure;
-        
+        $userId = 1;
         if (!$mail->send()) {
             return Array("success"=>0,"message"=>$mail->ErrorInfo, "uuid"=>"") ;
         } else {
-            $sql = "INSERT INTO gw_mail.mail_out(uuid,project,application,oggetto,testo,a,cc,bcc,allegati,protocollo,data_protocollo,tms_protocollo,uidins,pec) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?);";
+            $sql = "INSERT INTO gw_mail.mail_out(uuid,project,application,oggetto,testo,a,cc,bcc,allegati,protocollo,data_protocollo,tms_protocollo,uidins,pec) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?);";
             $dbh = self::getDB();
             $arrTO =(count($cc))?(sprintf("{'%s'}",implode("','",$to))):(NULL);
             $arrCC =(count($cc))?(sprintf("{'%s'}",implode("','",$cc))):(NULL);
@@ -360,8 +360,56 @@ class gwMail{
                     }
                 }
             }
+        }        
+        return $result;
+    }
+    static function verificaUUID($uuid){
+        $result = Array(
+            "success"=>1,
+            "message"=>"",
+            "accettazioni"=>Array(),
+            "consegne"=>Array()
+        );
+        $res = self::getAccettazione($uuid);
+        if ($res["success"]==1){
+
+            $data = $res["data"];
+            for($i=0;$i<count($data);$i++){
+                $r = $data[$i];
+                $result["accettazioni"][] =  Array(
+                    "uuid"=>$uuid,
+                    "message_id"=>$r["message_id"],
+                    "oggetto"=>$r["oggetto"],
+                    "from"=>$r["from"],
+                    "to"=>$r["to"],
+                    "pec"=>"",
+                    "data"=>$r["data"],
+                    "uid"=>$r["uid"],
+                    "accettazione"=>$r["accettazione"],
+                    "consegna"=>"0"
+                );
+            }
         }
-        
+        $res = self::getConsegna($uuid);
+        if ($res["success"]==1){
+
+            $data = $res["data"];
+            for($i=0;$i<count($data);$i++){
+                $r = $data[$i];
+                $result["consegne"][] =  Array(
+                    "uuid"=>$uuid,
+                    "message_id"=>$r["message_id"],
+                    "oggetto"=>$r["oggetto"],
+                    "from"=>$r["from"],
+                    "to"=>$r["to"],
+                    "pec"=>$r["pec"],
+                    "data"=>$r["data"],
+                    "uid"=>$r["uid"],
+                    "accettazione"=>"0",
+                    "consegna"=>$r["consegna"]
+                );
+            }
+        }
         return $result;
     }
 }

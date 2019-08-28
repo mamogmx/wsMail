@@ -126,47 +126,9 @@ function verificaInvio($uuid,$hash){
         "accettazioni"=>Array(),
         "consegne"=>Array()
     );
-    $res = gwMail::getAccettazione($uuid);
-    if ($res["success"]==1){
-
-        $data = $res["data"];
-        for($i=0;$i<count($data);$i++){
-            $r = $data[$i];
-            $result["accettazioni"][] =  Array(
-                "uuid"=>$uuid,
-                "message_id"=>$r["message_id"],
-                "oggetto"=>$r["oggetto"],
-                "from"=>$r["from"],
-                "to"=>$r["to"],
-                "pec"=>"",
-                "data"=>$r["data"],
-                "uid"=>$r["uid"],
-                "accettazione"=>$r["accettazione"],
-                "consegna"=>"0"
-            );
-        }
-    }
-    $res = gwMail::getConsegna($uuid);
-    if ($res["success"]==1){
-
-        $data = $res["data"];
-        for($i=0;$i<count($data);$i++){
-            $r = $data[$i];
-            $result["accettazioni"][] =  Array(
-                "uuid"=>$uuid,
-                "message_id"=>$r["message_id"],
-                "oggetto"=>$r["oggetto"],
-                "from"=>$r["from"],
-                "to"=>$r["to"],
-                "pec"=>$r["pec"],
-                "data"=>$r["data"],
-                "uid"=>$r["uid"],
-                "accettazione"=>"0",
-                "consegna"=>$r["consegna"]
-            );
-        }
-    }
+    $result = gwMail::verificaUUID($uuid);
     
+    return $result;
 }
 
 $HTTP_RAW_POST_DATA = isset($HTTP_RAW_POST_DATA) ? $HTTP_RAW_POST_DATA : '';

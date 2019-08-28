@@ -1,2 +1,4 @@
 debug/*
 tmp/*
+test/*
+config/*.config.local.php
