@@ -19,9 +19,9 @@ $server->wsdl->addComplexType(
         "uuid"=>Array("name"=>"uuid","type"=>"xsd:string"),
         "message_id"=>Array("name"=>"message_id","type"=>"xsd:string"),
         "oggetto"=>Array("name"=>"oggetto","type"=>"xsd:string"),
-        "from"=>Array("name"=>"from","type"=>"xsd:string"),
-        "to"=>Array("name"=>"to","type"=>"xsd:string"),
-        "pec"=>Array("name"=>"pec","type"=>"xsd:string"),
+        "from"=>Array("name"=>"from","type"=>"xsd:string","description"=>"Host dal quale arriva la ricevuta"),
+        "to"=>Array("name"=>"to","type"=>"xsd:string","description"=>"Host al quale arriva la ricevuta"),
+        "pec"=>Array("name"=>"pec","type"=>"xsd:string","description"=>"Pec della quale si verifica la consegna"),
         "data"=>Array("name"=>"data","type"=>"xsd:string"),
         "uid"=>Array("name"=>"uid","type"=>"xsd:string"),
         "accettazione"=>Array("name"=>"accettazione","type"=>"xsd:string"),
@@ -30,8 +30,8 @@ $server->wsdl->addComplexType(
 );
 $server->wsdl->addComplexType(
     'allegato','complexType','struct','all','',Array(
-        "name"=>Array("name"=>"name","type"=>"xsd:string"),
-        "file"=>Array("name"=>"file","type"=>"xsd:string")
+        "name"=>Array("name"=>"name","type"=>"xsd:string","description"=>"Nome del file"),
+        "file"=>Array("name"=>"file","type"=>"xsd:string","description"=>"Contenuto del file codificato in base 64")
     )
 );
 
@@ -44,7 +44,8 @@ $server->wsdl->addComplexType(
     Array("allegato"=>
         Array(
             "name"=>"allegato",
-            "type"=>"tns:allegato"
+            "type"=>"tns:allegato",
+            
         )
     ),
     Array( 
