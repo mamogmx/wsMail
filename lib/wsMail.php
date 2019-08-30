@@ -15,6 +15,19 @@ $server->wsdl->addComplexType(
 );
 
 $server->wsdl->addComplexType(
+    'mail','complexType','struct','all','',Array(
+        "uuid"=>Array("name"=>"uuid","type"=>"xsd:string"),
+        "message_id"=>Array("name"=>"message_id","type"=>"xsd:string"),
+        "oggetto"=>Array("name"=>"oggetto","type"=>"xsd:string"),
+        "from"=>Array("name"=>"from","type"=>"xsd:string","description"=>"Host dal quale arriva la ricevuta"),
+        "to"=>Array("name"=>"to","type"=>"xsd:string","description"=>"Host al quale arriva la ricevuta"),    
+        "data"=>Array("name"=>"data","type"=>"xsd:string"),
+        "uid"=>Array("name"=>"uid","type"=>"xsd:string"),
+        "testo"=>Array("name"=>"testo","type"=>"xsd:string")
+    )
+);
+
+$server->wsdl->addComplexType(
     'verificaInvio','complexType','struct','all','',Array(
         "uuid"=>Array("name"=>"uuid","type"=>"xsd:string"),
         "message_id"=>Array("name"=>"message_id","type"=>"xsd:string"),
@@ -95,9 +108,28 @@ $server->register('inviaPec',
     'urn:wsMail#inviaMail',
     'rpc',
     'encoded',
+    'Metodo che invia una Pec con eventuali allegati'
+);
+$server->register('inviaMail',
+    Array(
+        "to"=>"tns:strArray", 
+        "oggetto"=>"xsd:string",
+        "testo"=>"xsd:string",
+        "allegati"=>"tns:allegati",
+        "cc"=>"tns:strArray",
+        "hash"=>"xsd:string"
+    ),
+    Array(
+        "success"=>"xsd:int",
+        "message"=>"xsd:string",
+        "uuid"=>"xsd:string"
+    ),
+    'urn:wsMail',
+    'urn:wsMail#inviaMail',
+    'rpc',
+    'encoded',
     'Metodo che invia una Mail con eventuali allegati'
 );
-
 $server->register('verificaPec',
     Array(
         "uuid"=>"xsd:string", 
@@ -117,7 +149,36 @@ $server->register('verificaPec',
     'Metodo che verifica lo stato di accettazzione e di consegna di una PEC dato il suo UUID'
 );
 
+
+$server->register('leggiMail',
+    Array(
+        "uuid"=>"xsd:string", 
+        "hash"=>"xsd:string"
+    ),
+    Array(
+        "success"=>"xsd:int",
+        "message"=>"xsd:string",
+        "result"=>"tns:mail"
+        
+    ),
+    'urn:wsMail',
+    'urn:wsMail#leggiMail',
+    'rpc',
+    'encoded',
+    'Metodo che legge una Mail dato il suo UUID'
+);
 function inviaPec($to,$oggetto,$testo,$allegati=Array(),$cc=Array(),$hash){
+    $attachments=Array();
+    for($i=0;$i<count($allegati);$i++){
+        $contenuto = base64_decode($allegati[$i]["file"]);
+        $attachments[]=Array("name"=>$allegati[$i]["name"],"file"=>$contenuto);
+    }
+    $res = gwMail::send($to, $oggetto, $testo,  $attachments, 0, $cc);
+    return $res;
+}
+
+function inviaMail()
+{
     $attachments=Array();
     for($i=0;$i<count($allegati);$i++){
         $contenuto = base64_decode($allegati[$i]["file"]);
@@ -139,6 +200,22 @@ function verificaPec($uuid,$hash){
     return $result;
 }
 
+function leggiMail($uuid,$hash){
+    $result = Array(
+        "success" => 0,
+        "message" => "Funzionalita non ancora implementata",
+        "mail" => Array(
+            "uuid"=>"",
+            "message_id"=>"",
+            "oggetto"=>"",
+            "from"=>"",
+            "to"=>"",    
+            "data"=>"",
+            "uid"=>"",
+            "testo"=>""
+        )
+    );
+}
 $HTTP_RAW_POST_DATA = isset($HTTP_RAW_POST_DATA) ? $HTTP_RAW_POST_DATA : '';
 
 $server->service($HTTP_RAW_POST_DATA);
